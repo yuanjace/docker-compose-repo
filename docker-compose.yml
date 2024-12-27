@@ -1,0 +1,58 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_proxy
+    volumes:
+      - django_app_volume:/app/static/ # 掛載靜態文件
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "8000:80"
+    depends_on:
+      - django
+    restart: always
+
+  django:
+    build:
+      context: ./django-repo
+    container_name: django_app
+    volumes:
+      - django_app_volume:/app/static # 掛載靜態文件
+    environment:
+      - OLLAMA_HOST=ollama
+      - OLLAMA_PORT=11434
+      - DEBUG=0
+    restart: always
+
+  vue_frontend:
+    build:
+      context: ./vue-aws-app # 前端 Vue.js 
+      args:
+        - VUE_APP_API_URL=http://localhost:8000/todos
+    container_name: vue_frontend_app
+    ports:
+      - "8080:80"
+    restart: always
+
+  ollama:
+    image: ollama/ollama:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - ./ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    container_name: ollama
+    restart: always
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+
+volumes:
+  django_app_volume: {}
+  vue_frontend_app_volume: {}
